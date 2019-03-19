@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 这个作为全局的配置文件 -->
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:security="http://www.springframework.org/schema/security"
+	xmlns:webflow-config="http://www.springframework.org/schema/webflow-config"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+       http://www.springframework.org/schema/beans/spring-beans.xsd 
+       http://www.springframework.org/schema/security 
+       http://www.springframework.org/schema/security/spring-security.xsd
+       http://www.springframework.org/schema/webflow-config 
+        http://www.springframework.org/schema/webflow-config/spring-webflow-config.xsd">
+
+	<!-- Spring - Security Purpose -->
+	<!-- use-expression表示是否允许使用permitAll这种表达式 -->
+	<security:http auto-config="true" use-expressions="true"
+		disable-url-rewriting="false">
+		<security:csrf disabled="true" />
+		<!--  这里为配置访问权限 -->
+		<security:intercept-url pattern="/index/**"
+			access="permitAll" /> 
+		<security:intercept-url pattern="/cart/**"
+			access="hasAnyRole('ROLE_USER')" />
+		<security:intercept-url pattern="/get*/**"
+			access="hasAnyRole('ROLE_ADMIN','ROLE_USER')" />
+		<security:intercept-url pattern="/admin*/**"
+			access="hasRole('ROLE_ADMIN')" />
+		<!-- 这里配置登陆页面
+				login-page : 指定登陆页面
+				default-target-url : 登陆成功转跳的页面
+				authentication-failure : 登录失败转跳的页面
+		 -->
+		<security:form-login login-page="/login"
+			authentication-failure-url="/login?error=1"
+			default-target-url="/index" />
+		<!-- 配置退出登录的页面
+		 -->
+		<security:logout logout-url="/logout" />
+	</security:http>
+	
+	<!-- 配置认证管理器 -->
+	<security:authentication-manager>
+		<security:authentication-provider>
+			<!-- 配置一个用户,账号,密码,角色 -->
+			<!-- 注意,这个配置在全局使用,但不会加入到数据库中 -->
+			<security:user-service>
+				<security:user name="ruihaowa@usc.edu"
+					password="862455" authorities="ROLE_ADMIN" />
+			</security:user-service>
+		</security:authentication-provider>
+			<!-- 配置DB的操作,获取authorties与用户信息 -->
+		<security:authentication-provider>
+			<!-- 更具emailId,获取到目标的authorities -->
+			<security:jdbc-user-service
+				data-source-ref="dataSource"
+				authorities-by-username-query="SELECT
+				emailId,authorities FROM authorities WHERE emailId =?"
+				users-by-username-query="SELECT
+				emailId, password, enabled FROM users WHERE emailId=? " />
+		</security:authentication-provider>
+
+	</security:authentication-manager>
+	
+	<!-- 以下内容为webflow -->
+	
+	<!-- flow-executor: 流程的executor,绑定register -->
+	<webflow-config:flow-executor
+		id="flowExecutor" flow-registry="flowRegistry">
+	</webflow-config:flow-executor>
+	
+	
+	<!-- flow-registry: 流程的注册表,里面定义了流程 -->
+	<webflow-config:flow-registry
+		id="flowRegistry" base-path="/WEB-INF/flow">
+		<!-- 具体的flow从checkout-flow.xml中读取 -->
+		<webflow-config:flow-location
+			path="/checkout/checkout-flow.xml" id="checkout"></webflow-config:flow-location>
+	</webflow-config:flow-registry>
+	
+	
+	<!-- mapping用来读取registry -->
+	<bean id="flowHandleMapping"
+		class="org.springframework.webflow.mvc.servlet.FlowHandlerMapping">
+		<!-- 被读取的registry -->
+		<property name="flowRegistry" ref="flowRegistry"></property>
+	</bean>
+	
+	
+	<!-- adapter用来将任务分配给executor -->
+	<bean id="flowHandlerAdapter"
+		class="org.springframework.webflow.mvc.servlet.FlowHandlerAdapter">
+		<!-- 配置一个executor -->
+		<property name="flowExecutor" ref="flowExecutor"></property>
+	</bean>
+
+</beans>
